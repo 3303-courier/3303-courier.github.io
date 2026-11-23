@@ -48,7 +48,7 @@ const MON=['Январь','Февраль','Март','Апрель','Май','�
 let S,doc=null,tab='in',cur=null;
 function norm(s){s.days.forEach(x=>x.t=x.t.map(v=>typeof v==='number'?{n:v,tm:''}:v));return s}
 function loadS(){try{const j=localStorage.getItem('sushi');if(j)return norm(JSON.parse(j))}catch(e){}return norm(JSON.parse(JSON.stringify(SEED)))}
-function saveS(){try{localStorage.setItem('sushi',JSON.stringify(S))}catch(e){}if(doc)doc.set({json:JSON.stringify(S)}).catch(()=>{})}
+function saveS(){try{localStorage.setItem('sushi',JSON.stringify(S));$('#st').textContent='✓ сохранено на телефоне ('+S.days.length+' дн.)'}catch(e){$('#st').textContent='⚠ не сохраняется: память браузера недоступна'}if(doc)doc.set({json:JSON.stringify(S)}).catch(()=>{})}
 function tar(d){let b=null;for(const t of S.tariffs)if(t.from<=d&&(!b||t.from>b.from))b=t;return b||{o:0,k:0}}
 function calc(x){const t=tar(x.d),n=x.t.reduce((a,b)=>a+(b.n||0),0),pay=n*t.o,kp=x.km*t.k,net=x.dc-x.ch;return{n,pay,kp,net,tea:net-kp-pay,rate:t.k,ro:t.o}}
 function pk(d){let r=0,b='';for(const x of S.days)if(x.d<d&&x.ko&&x.d>b){b=x.d;r=x.kv||0}return r}
@@ -88,6 +88,7 @@ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff
 function bk(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='sushi-backup-'+today()+'.json';document.body.appendChild(a);a.click();a.remove()}
 function rs(i){const f=i.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const n=norm(JSON.parse(r.result));if(!n.days||!n.tariffs)throw 0;if(!confirm('Заменить текущие данные копией?'))return;S=n;saveS();cur=null;draw()}catch(e){alert('Это не файл копии')}};r.readAsText(f)}
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 S=loadS();draw();
 
 </script></body></html>
