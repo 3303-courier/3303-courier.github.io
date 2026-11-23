@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"><meta name="theme-color" content="#c00000">
+<title>Суши — учёт ходок</title>
+<style>
+:root{--bg:#f4f5f7;--fg:#1c1e21;--card:#fff;--mut:#6b7280;--acc:#c00000;--ok:#15803d;--ln:#e3e5e8;--inp:#fff9e5;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111214;--fg:#eceef1;--card:#1c1e22;--mut:#9aa1ab;--acc:#ff5a5a;--ok:#4ade80;--ln:#2d3036;--inp:#2a2618;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#111214;--fg:#eceef1;--card:#1c1e22;--mut:#9aa1ab;--acc:#ff5a5a;--ok:#4ade80;--ln:#2d3036;--inp:#2a2618;color-scheme:dark}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.35 -apple-system,Arial,sans-serif;padding:12px 12px calc(76px + env(safe-area-inset-bottom,0px))}
+h1{font-size:19px;margin:4px 0 12px;display:flex;justify-content:space-between;align-items:center}
+h1 small{font-size:11px;font-weight:400;color:var(--mut)}
+.card{background:var(--card);border:1px solid var(--ln);border-radius:14px;padding:12px;margin-bottom:12px}
+label{display:block;font-size:12px;color:var(--mut);margin:8px 0 3px}
+input{width:100%;font:inherit;color:var(--fg);background:var(--inp);border:1px solid var(--ln);border-radius:10px;padding:10px}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
+.trips{display:flex;flex-wrap:wrap;gap:8px}.trips .t{flex:0 0 76px;position:relative}
+.trips .t input{text-align:center;padding:10px 4px}
+.x{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--mut);color:var(--card);font-size:13px;line-height:20px;text-align:center}
+button{font:inherit;border:0;border-radius:12px;padding:12px;background:var(--acc);color:#fff;font-weight:600;width:100%}
+button.s{background:var(--ln);color:var(--fg);width:auto;flex:0 0 76px;padding:10px 0}
+button.d{background:transparent;color:var(--acc);margin-top:6px}
+.kv{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--ln)}.kv:last-child{border:0}
+.kv b{font-variant-numeric:tabular-nums}.big{font-size:20px;color:var(--ok)}
+.li{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--ln)}.li:last-child{border:0}.li small{color:var(--mut)}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--ln);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav a{flex:1;text-align:center;padding:10px 0 8px;font-size:11px;color:var(--mut)}nav a i{display:block;font-style:normal;font-size:20px}nav a.on{color:var(--acc);font-weight:600}
+.note{font-size:12px;color:var(--mut)}.msg{color:var(--ok);text-align:center;font-size:13px;height:18px}
+.tr{display:flex;gap:6px;margin-bottom:8px}.tr input{padding:8px 6px;font-size:15px}.tr button{flex:0 0 40px;padding:8px}.tr.z{outline:3px solid var(--acc);outline-offset:3px;border-radius:10px;background:rgba(255,90,90,.15);margin:12px 4px}
+</style></head><body>
+<h1><span>🍣 Учёт ходок</span><small id="st">данные на этом телефоне</small></h1>
+<div id="app">Загрузка…</div>
+<nav id="nav"></nav>
+<script>
+addEventListener("error",e=>{document.body.insertAdjacentHTML("afterbegin","<pre style=\"color:#f55;white-space:pre-wrap;font-size:12px\">Ошибка: "+e.message+" (стр. "+e.lineno+")</pre>")});
+</script>
+<script>
+const SEED={"days":[],"tariffs":[{"from":"2026-07-26","o":60,"k":7},{"from":"2026-07-27","o":60,"k":6.75},{"from":"2026-08-01","o":60,"k":7},{"from":"2026-08-07","o":60,"k":7.2},{"from":"2026-10-16","o":60,"k":7.6},{"from":"2026-10-29","o":60,"k":8.6},{"from":"2026-11-19","o":60,"k":9.2}]};
+const $=s=>document.querySelector(s);
+const nf=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
+const m=n=>nf.format(Math.round(n*100)/100);
+const num=v=>parseFloat(String(v).replace(',','.'))||0;
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const fd=d=>d.slice(8)+'.'+d.slice(5,7)+'.'+d.slice(2,4);
+const MON=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+let S,doc=null,tab='in',cur=null;
+function norm(s){s.days.forEach(x=>x.t=x.t.map(v=>typeof v==='number'?{n:v,tm:''}:v));return s}
+function loadS(){try{const j=localStorage.getItem('sushi');if(j)return norm(JSON.parse(j))}catch(e){}return norm(JSON.parse(JSON.stringify(SEED)))}
+function saveS(){try{localStorage.setItem('sushi',JSON.stringify(S))}catch(e){}if(doc)doc.set({json:JSON.stringify(S)}).catch(()=>{})}
+function tar(d){let b=null;for(const t of S.tariffs)if(t.from<=d&&(!b||t.from>b.from))b=t;return b||{o:0,k:0}}
+function calc(x){const t=tar(x.d),n=x.t.reduce((a,b)=>a+(b.n||0),0),pay=n*t.o,kp=x.km*t.k,net=x.dc-x.ch;return{n,pay,kp,net,tea:net-kp-pay,rate:t.k,ro:t.o}}
+function pk(d){let r=0,b='';for(const x of S.days)if(x.d<d&&x.ko&&x.d>b){b=x.d;r=x.kv||0}return r}
+function openDay(d){const f=S.days.find(x=>x.d===d);cur=f?JSON.parse(JSON.stringify(f)):{d,t:[],km:0,dc:0,ch:pk(d),ko:false,kv:0};cur.isNew=!f}
+function zc(e,i){const t=S.tariffs[i];e.parentNode.classList.toggle('z',!t.o||!t.k)}let T;function ch(){upd();clearTimeout(T);T=setTimeout(commit,500)}
+function hm(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+function goTab(t){tab=t;draw()}
+function draw(){
+ if(!cur)openDay(today());
+ $('#nav').innerHTML=[['in','✏️','Ввод'],['hi','📋','История'],['su','📊','Итоги'],['ta','⚙️','Тарифы']].map(a=>`<a class="${tab===a[0]?'on':''}" onclick="commit();goTab('${a[0]}')"><i>${a[1]}</i>${a[2]}</a>`).join('');
+ $('#app').innerHTML=({in:vIn,hi:vHi,su:vSu,ta:vTa})[tab]();
+ if(tab==='in')upd();
+}
+function vIn(){const w=tar(cur.d);return `${!w.o||!w.k?'<div class="card" style="border:2px solid var(--acc);color:var(--acc)" onclick="goTab(\'ta\')">⚠ Для этой даты цена за заказ или за км равна 0. Заполните тариф во вкладке «Тарифы» (нажмите сюда).</div>':''}<div class="card"><label>Дата</label><input type="date" value="${cur.d}" onchange="commit();openDay(this.value||today());draw()">
+<label>Ходки за день</label>${cur.t.map((v,i)=>`<div class="tr"><span style="flex:0 0 78px"><b>Ходка ${i+1}</b><br><small class="note">выезд ${v.tm||'—'}</small></span><input type="number" inputmode="numeric" placeholder="чеков" value="${v.n||''}" oninput="cur.t[${i}].n=num(this.value);ch()"><button onclick="cur.t.splice(${i},1);ch();draw()">×</button></div>`).join('')}
+<button onclick="cur.t.push({n:0,tm:hm()});ch();draw();const q=document.querySelectorAll('.tr input');q[q.length-1].focus()">🚗 Новая ходка</button>
+<div class="row"><div><label>Пробег, км</label><input type="number" step="any" inputmode="decimal" value="${cur.km||''}" oninput="cur.km=num(this.value);ch()"></div></div>
+<div class="row"><div><label>Грязная касса</label><input type="number" step="any" inputmode="decimal" value="${cur.dc||''}" oninput="cur.dc=num(this.value);ch()"></div>
+<div><label>Размен</label><input type="number" step="any" inputmode="decimal" value="${cur.ch||''}" oninput="cur.ch=num(this.value);ch()"></div></div>
+<label style="display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15px;color:var(--fg)"><input type="checkbox" style="width:22px;flex:none" ${cur.ko?'checked':''} onchange="cur.ko=this.checked;cur.kv=this.checked?(cur.kv||cur.ch):0;ch();draw()">Оставить размен на завтра</label>
+${cur.ko?`<label>Сколько оставляю, ₴ (завтра подставится в «Размен»)</label><input type="number" step="any" inputmode="decimal" value="${cur.kv||''}" oninput="cur.kv=num(this.value);ch()">`:''}</div>
+<div class="card" id="cl"></div><div class="msg" id="msg">Сохраняется автоматически</div>
+${cur.isNew?'':'<button class="d" onclick="dl()">Удалить день</button>'}`}
+function upd(){const c=calc(cur);$('#cl').innerHTML=`<div class="kv"><span>Заказов</span><b>${c.n}</b></div><div class="kv"><span>Оплата по заказам (${m(c.ro)} ₴)</span><b>${m(c.pay)}</b></div><div class="kv"><span>Оплата пробега (${m(c.rate)} ₴/км)</span><b>${m(c.kp)}</b></div><div class="kv"><span>Чистые</span><b>${m(c.net)}</b></div><div class="kv"><span>Чай</span><b class="big">${m(c.tea)}</b></div>`}
+function commit(){clearTimeout(T);if(!cur||!(cur.t.length||cur.km||cur.dc))return;const x={d:cur.d,t:cur.t,km:cur.km,dc:cur.dc,ch:cur.ch,ko:!!cur.ko,kv:cur.kv||0};const i=S.days.findIndex(y=>y.d===x.d);if(i<0)S.days.push(x);else S.days[i]=JSON.parse(JSON.stringify(x));S.days.sort((a,b)=>a.d<b.d?-1:1);saveS();cur.isNew=false;const e=$('#msg');if(e)e.textContent='Сохранено ✓'}
+function dl(){if(!confirm('Удалить этот день?'))return;S.days=S.days.filter(y=>y.d!==cur.d);saveS();openDay(cur.d);draw()}
+function vHi(){return `<div class="card">${[...S.days].reverse().map(x=>{const c=calc(x);return `<div class="li" onclick="openDay('${x.d}');goTab('in')"><div><b>${fd(x.d)}</b><br><small>${c.n} зак · ${m(x.km)} км</small></div><div style="text-align:right">${m(c.net)}<br><small>чай ${m(c.tea)}</small></div></div>`}).join('')||'<div class="note">Пока пусто</div>'}</div>`}
+function vSu(){const g={};let T={n:0,pay:0,km:0,kp:0,dc:0,ch:0,net:0,tea:0,d:0};for(const x of S.days){const c=calc(x),k=x.d.slice(0,7),a=g[k]=g[k]||{n:0,pay:0,km:0,kp:0,dc:0,ch:0,net:0,tea:0,d:0};for(const o of [a,T]){o.n+=c.n;o.pay+=c.pay;o.km+=x.km;o.kp+=c.kp;o.dc+=x.dc;o.ch+=x.ch;o.net+=c.net;o.tea+=c.tea;o.d++}}
+ const box=(t,a)=>`<div class="card"><b>${t}</b>${[['Дней',a.d],['Заказов',a.n],['Оплата по заказам',m(a.pay)],['Пробег, км',m(a.km)],['Оплата пробега',m(a.kp)],['Грязная касса',m(a.dc)],['Размен',m(a.ch)],['Чай',m(a.tea)]].map(r=>`<div class="kv"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('')}<div class="kv"><span>Чистый доход</span><b class="big">${m(a.net)}</b></div></div>`;
+ return Object.keys(g).sort().reverse().map(k=>box(MON[+k.slice(5)-1]+' '+k.slice(0,4),g[k])).join('')+box('Всего',T)}
+function vTa(){return `<div class="card"><div class="note" style="margin-bottom:10px">Цена действует с указанной даты. Чтобы поменять цену км — добавьте новую строку с новой датой: старые дни не пересчитаются.</div><div class="tr note"><span style="flex:1.3">Действует с</span><span style="flex:1">За заказ</span><span style="flex:1">За 1 км</span><span style="flex:0 0 40px"></span></div>${S.tariffs.map((t,i)=>({t,i})).sort((a,b)=>a.t.from<b.t.from?1:-1).map(({t,i})=>`<div class="tr${!t.o||!t.k?' z':''}"><input style="flex:1.3" type="date" value="${t.from}" onchange="S.tariffs[${i}].from=this.value;saveS()"><input type="number" step="any" inputmode="decimal" value="${t.o}" onchange="S.tariffs[${i}].o=num(this.value);saveS();zc(this,${i})"><input type="number" step="any" inputmode="decimal" value="${t.k}" onchange="S.tariffs[${i}].k=num(this.value);saveS();zc(this,${i})"><button onclick="S.tariffs.splice(${i},1);saveS();draw()">×</button></div>`).join('')}</div><button onclick="S.tariffs.push({from:today(),o:0,k:0});saveS();draw()">+ Новый тариф</button><div class="row" style="margin-top:12px"><button onclick="bk()">⬇ Скачать копию</button><button onclick="document.getElementById('f').click()">⬆ Загрузить копию</button></div><div class="note" style="margin-top:8px">Копия — файл со всеми вашими днями и тарифами. Сохраняйте её время от времени, чтобы не потерять данные.</div><input type="file" id="f" accept=".json" style="display:none" onchange="rs(this)">`}
+function bk(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='sushi-backup-'+today()+'.json';document.body.appendChild(a);a.click();a.remove()}
+function rs(i){const f=i.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const n=norm(JSON.parse(r.result));if(!n.days||!n.tariffs)throw 0;if(!confirm('Заменить текущие данные копией?'))return;S=n;saveS();cur=null;draw()}catch(e){alert('Это не файл копии')}};r.readAsText(f)}
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+S=loadS();draw();
+
+</script></body></html>
